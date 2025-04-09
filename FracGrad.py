@@ -3,7 +3,7 @@ from torch.optim import Optimizer
 
 
 class FractionalSGD(Optimizer):
-    def __init__(self, params, lr=1e-3, alpha=0.5, h=0.8, max_history=10):
+    def __init__(self, params, lr=1e-3, alpha=0.5, h=1.0, max_history=10):
         """
         Implements fractional-order SGD using Grünwald-Letnikov derivative.
 
