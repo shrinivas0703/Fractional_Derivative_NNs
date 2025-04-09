@@ -1,4 +1,4 @@
-# Fourier_Transform_SLMs
+# Fractional Derivative Neural Networks
 CS 587 Final Project
 
 # Team
