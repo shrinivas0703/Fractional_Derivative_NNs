@@ -173,6 +173,7 @@ poetry.toml
 # LSP config files
 pyrightconfig.json
 
-data/FashionMNIST/raw/
+data/FashionMNIST/raw
 slurm_logs/
+data/
 # End of https://www.toptal.com/developers/gitignore/api/python
