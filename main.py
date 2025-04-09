@@ -5,6 +5,8 @@ from data_utils import get_fashion_mnist_loaders
 import torch.nn.functional as F
 import os
 import matplotlib.pyplot as plt
+from FracGrad import FractionalSGD
+import argparse
 
 DATA_DIR = 'data/'
 PLOTS_DIR = 'plots/'
@@ -58,7 +60,7 @@ def validation(model, device, validation_loader, quiet=False):
 
     return 100.0 * correct / len(validation_loader.dataset)
 
-def plot_flatness(model, test_loader, device, initial_params, final_params, model_id):
+def plot_flatness(model, test_loader, device, initial_params, final_params, model_id, flag):
     v_err = []
     alpha_v = []
     model.to(device)
@@ -75,17 +77,32 @@ def plot_flatness(model, test_loader, device, initial_params, final_params, mode
     plt.ylabel("Validation error (%)")
     plt.title(f"Loss Flatness for Model #{model_id}")
     plt.grid(True)
-    plt.savefig(os.path.join(PLOTS_DIR, f"flatness_plot_model_{model_id}.png"))
+    if flag:
+        plt.savefig(os.path.join(PLOTS_DIR, f"flatness_plot_fractional_model_{model_id}.png"))
+    else:
+        plt.savefig(os.path.join(PLOTS_DIR, f"flatness_plot_model_{model_id}.png"))
     plt.close()
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--use-fractional', action='store_true', help='Use FractionalSGD instead of standard SGD')
+    args = parser.parse_args()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     for seed in range(3):
-        print(f"Training vanilla model #{seed}")
+        if args.use_fractional:
+            print(f"Training fractional model #{seed}")
+        else:
+            print(f"Training vanilla model #{seed}")
+        
 
         train_loader, test_loader = get_fashion_mnist_loaders(data_dir=DATA_DIR, seed=seed)
         model = NeuralNetwork().to(device)
-        optimizer = optim.SGD(model.parameters(), lr=0.01)
+        flag = False
+        if args.use_fractional:
+            optimizer = FractionalSGD(model.parameters(), lr=0.01)
+            flag = True
+        else:
+            optimizer = optim.SGD(model.parameters(), lr=0.01)
 
         # Save initial parameters
         initial_params = {name: param.clone().detach() for name, param in model.named_parameters()}
@@ -99,4 +116,4 @@ if __name__ == '__main__':
         print(f"Model #{seed} test accuracy: {acc:.2f}%")
 
         # Plot flatness
-        plot_flatness(model, test_loader, device, initial_params, final_params, model_id=seed)
+        plot_flatness(model, test_loader, device, initial_params, final_params, model_id=seed, flag=flag)
