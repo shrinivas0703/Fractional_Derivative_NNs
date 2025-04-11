@@ -11,6 +11,8 @@ import os
 import matplotlib.pyplot as plt
 from FracGrad import FractionalSGD
 import argparse
+import copy
+import torch.nn as nn
 
 DATA_DIR = "data/"
 PLOTS_DIR = "plots/"
@@ -100,6 +102,48 @@ def plot_flatness(
     plt.close()
 
 
+def compute_sharpness(model, loss_fn, data_loader, device, rho=1e-2, num_batches=1):
+    model.eval()
+    original_state = copy.deepcopy(model.state_dict())
+
+    batch_iter = iter(data_loader)
+    total_original_loss = 0.0
+    total_perturbed_loss = 0.0
+
+    for _ in range(num_batches):
+        inputs, targets = next(batch_iter)
+        inputs, targets = inputs.to(device), targets.to(device)
+
+        # Compute original loss
+        outputs = model(inputs)
+        original_loss = loss_fn(outputs, targets)
+        total_original_loss += original_loss.item()
+
+        # Apply perturbation to weights
+        with torch.no_grad():
+            for param in model.parameters():
+                if param.requires_grad:
+                    noise = torch.empty_like(param).uniform_(-rho, rho)
+                    param.add_(noise)
+
+        # Compute perturbed loss
+        with torch.no_grad():
+            outputs_perturbed = model(inputs)
+            perturbed_loss = loss_fn(outputs_perturbed, targets)
+            total_perturbed_loss += perturbed_loss.item()
+
+        # Restore original model parameters
+        model.load_state_dict(original_state)
+
+    # Average losses
+    avg_orig = total_original_loss / num_batches
+    avg_pert = total_perturbed_loss / num_batches
+
+    # Compute sharpness (%)
+    sharpness = ((avg_pert - avg_orig) / (1 + avg_orig)) * 100
+    return sharpness
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -151,3 +195,6 @@ if __name__ == "__main__":
             model_id=seed,
             flag=flag,
         )
+
+        sharpness = compute_sharpness(model, nn.CrossEntropyLoss(), test_loader, device)
+        print(f"Sharpness: {sharpness:.2f}%")
