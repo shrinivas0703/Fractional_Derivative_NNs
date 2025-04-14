@@ -151,30 +151,30 @@ if __name__ == "__main__":
     parser.add_argument(
         "--data",
         type=str,
-        choices=["fashion_mnist", "cifar10_grayscale", "cifar100_grayscale"],
-        default="fashion_mnist",
-        help="Dataset to use: fashion_mnist, cifar10_grayscale, or cifar100_grayscale",
+        choices=["fashion-mnist", "cifar10-grayscale", "cifar100-grayscale"],
+        default="fashion-mnist",
+        help="Dataset to use: fashion-mnist, cifar10-grayscale, or cifar100-grayscale",
     )
     args = parser.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Select dataset and configure dimensions
-    if args.data == "fashion_mnist":
+    if args.data == "fashion-mnist":
         from data_utils import get_fashion_mnist_loaders
 
         get_loader_fn = get_fashion_mnist_loaders
         image_size = 28 * 28
         num_classes = 10
 
-    elif args.data == "cifar10_grayscale":
+    elif args.data == "cifar10-grayscale":
         from data_utils import get_cifar10_loaders_grayscale
 
         get_loader_fn = get_cifar10_loaders_grayscale
         image_size = 32 * 32
         num_classes = 10
 
-    elif args.data == "cifar100_grayscale":
+    elif args.data == "cifar100-grayscale":
         from data_utils import get_cifar100_loaders_grayscale
 
         get_loader_fn = get_cifar100_loaders_grayscale
