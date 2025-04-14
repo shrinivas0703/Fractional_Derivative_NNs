@@ -1,11 +1,8 @@
+#!/usr/bin/env python3
+
 import torch
 from torch import optim
 from NeuralNetwork import NeuralNetwork
-from data_utils import (
-    get_fashion_mnist_loaders,
-    get_cifar100_loaders,
-    get_noisy_fashion_mnist_loaders,
-)
 import torch.nn.functional as F
 import os
 import matplotlib.pyplot as plt
@@ -151,24 +148,55 @@ if __name__ == "__main__":
         action="store_true",
         help="Use FractionalSGD instead of standard SGD",
     )
+    parser.add_argument(
+        "--data",
+        type=str,
+        choices=["fashion_mnist", "cifar10_grayscale", "cifar100_grayscale"],
+        default="fashion_mnist",
+        help="Dataset to use: fashion_mnist, cifar10_grayscale, or cifar100_grayscale",
+    )
     args = parser.parse_args()
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # Select dataset and configure dimensions
+    if args.data == "fashion_mnist":
+        from data_utils import get_fashion_mnist_loaders
+
+        get_loader_fn = get_fashion_mnist_loaders
+        image_size = 28 * 28
+        num_classes = 10
+
+    elif args.data == "cifar10_grayscale":
+        from data_utils import get_cifar10_loaders_grayscale
+
+        get_loader_fn = get_cifar10_loaders_grayscale
+        image_size = 32 * 32
+        num_classes = 10
+
+    elif args.data == "cifar100_grayscale":
+        from data_utils import get_cifar100_loaders_grayscale
+
+        get_loader_fn = get_cifar100_loaders_grayscale
+        image_size = 32 * 32
+        num_classes = 100
+
     for seed in range(3):
         if args.use_fractional:
             print(f"Training fractional model #{seed}")
         else:
             print(f"Training vanilla model #{seed}")
 
-        train_loader, test_loader = get_noisy_fashion_mnist_loaders(
-            data_dir=DATA_DIR, seed=seed
+        train_loader, test_loader = get_loader_fn(data_dir=DATA_DIR, seed=seed)
+
+        model = NeuralNetwork(input_dim=image_size, output_dim=num_classes).to(device)
+
+        flag = args.use_fractional
+        optimizer = (
+            FractionalSGD(model.parameters(), lr=0.01)
+            if args.use_fractional
+            else optim.SGD(model.parameters(), lr=0.01)
         )
-        model = NeuralNetwork().to(device)
-        flag = False
-        if args.use_fractional:
-            optimizer = FractionalSGD(model.parameters(), lr=0.01)
-            flag = True
-        else:
-            optimizer = optim.SGD(model.parameters(), lr=0.01)
 
         # Save initial parameters
         initial_params = {
@@ -198,3 +226,59 @@ if __name__ == "__main__":
 
         sharpness = compute_sharpness(model, nn.CrossEntropyLoss(), test_loader, device)
         print(f"Sharpness: {sharpness:.2f}%")
+
+
+# if __name__ == "__main__":
+#     parser = argparse.ArgumentParser()
+#     parser.add_argument(
+#         "--use-fractional",
+#         action="store_true",
+#         help="Use FractionalSGD instead of standard SGD",
+#     )
+#     args = parser.parse_args()
+#     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+#     for seed in range(3):
+#         if args.use_fractional:
+#             print(f"Training fractional model #{seed}")
+#         else:
+#             print(f"Training vanilla model #{seed}")
+
+#         train_loader, test_loader = get_noisy_fashion_mnist_loaders(
+#             data_dir=DATA_DIR, seed=seed
+#         )
+#         model = NeuralNetwork().to(device)
+#         flag = False
+#         if args.use_fractional:
+#             optimizer = FractionalSGD(model.parameters(), lr=0.01)
+#             flag = True
+#         else:
+#             optimizer = optim.SGD(model.parameters(), lr=0.01)
+
+#         # Save initial parameters
+#         initial_params = {
+#             name: param.clone().detach() for name, param in model.named_parameters()
+#         }
+
+#         train(model, train_loader, optimizer, device)
+
+#         # Save final parameters
+#         final_params = {
+#             name: param.clone().detach() for name, param in model.named_parameters()
+#         }
+
+#         acc = test(model, test_loader, device)
+#         print(f"Model #{seed} test accuracy: {acc:.2f}%")
+
+#         # Plot flatness
+#         plot_flatness(
+#             model,
+#             test_loader,
+#             device,
+#             initial_params,
+#             final_params,
+#             model_id=seed,
+#             flag=flag,
+#         )
+
+#         sharpness = compute_sharpness(model, nn.CrossEntropyLoss(), test_loader, device)
+#         print(f"Sharpness: {sharpness:.2f}%")
