@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 
 class NeuralNetwork(nn.Module):
-    def __init__(self, input_dim=28 * 28, hidden_dim=256, output_dim=10):
+    def __init__(self, input_dim=28 * 28, hidden_dim=512, output_dim=10):
         super(NeuralNetwork, self).__init__()
         self.fc1 = nn.Linear(input_dim, hidden_dim)
         self.fc2 = nn.Linear(hidden_dim, hidden_dim)

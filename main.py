@@ -17,15 +17,44 @@ os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(PLOTS_DIR, exist_ok=True)
 
 
-def train(model, train_loader, optimizer, device):
-    model.train()
-    for images, labels in train_loader:
-        images, labels = images.to(device), labels.to(device)
-        optimizer.zero_grad()
-        outputs = model(images)
-        loss = model.compute_loss(outputs, labels)
-        model.backward_step(loss)
-        optimizer.step()
+def train(
+    model, train_loader, val_loader, optimizer, device, max_epochs=50, patience=5
+):
+    best_val_loss = float("inf")
+    epochs_no_improve = 0
+
+    for epoch in range(max_epochs):
+        model.train()
+        for images, labels in train_loader:
+            images, labels = images.to(device), labels.to(device)
+            optimizer.zero_grad()
+            outputs = model(images)
+            loss = model.compute_loss(outputs, labels)
+            model.backward_step(loss)
+            optimizer.step()
+
+        # Validation phase
+        model.eval()
+        val_loss = 0.0
+        with torch.no_grad():
+            for images, labels in val_loader:
+                images, labels = images.to(device), labels.to(device)
+                outputs = model(images)
+                loss = model.compute_loss(outputs, labels)
+                val_loss += loss.item()
+        val_loss /= len(val_loader)
+
+        print(f"Epoch {epoch+1}: validation loss = {val_loss:.4f}")
+
+        # Early stopping logic
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            epochs_no_improve = 0
+        else:
+            epochs_no_improve += 1
+            if epochs_no_improve >= patience:
+                print(f"Early stopping triggered at epoch {epoch+1}")
+                break
 
 
 def test(model, test_loader, device):
@@ -70,8 +99,9 @@ def validation(model, device, validation_loader, quiet=False):
 
 
 def plot_flatness(
-    model, test_loader, device, initial_params, final_params, model_id, flag
+    model, test_loader, device, initial_params, final_params, model_id, flag, dataset
 ):
+    os.makedirs(PLOTS_DIR + dataset, exist_ok=True)
     v_err = []
     alpha_v = []
     model.to(device)
@@ -88,14 +118,18 @@ def plot_flatness(
     plt.plot(alpha_v, v_err)
     plt.xlabel("Interpolation coefficient (alpha)")
     plt.ylabel("Validation error (%)")
-    plt.title(f"Loss Flatness for Model #{model_id}")
+    plt.title(f"Loss Flatness for Model #{model_id} on {dataset}")
     plt.grid(True)
     if flag:
         plt.savefig(
-            os.path.join(PLOTS_DIR, f"flatness_plot_fractional_model_{model_id}.png")
+            os.path.join(
+                PLOTS_DIR, dataset, f"flatness_plot_fractional_model_{model_id}.png"
+            )
         )
     else:
-        plt.savefig(os.path.join(PLOTS_DIR, f"flatness_plot_model_{model_id}.png"))
+        plt.savefig(
+            os.path.join(PLOTS_DIR, dataset, f"flatness_plot_model_{model_id}.png")
+        )
     plt.close()
 
 
@@ -187,7 +221,9 @@ if __name__ == "__main__":
         else:
             print(f"Training vanilla model #{seed}")
 
-        train_loader, test_loader = get_loader_fn(data_dir=DATA_DIR, seed=seed)
+        train_loader, val_loader, test_loader = get_loader_fn(
+            data_dir=DATA_DIR, seed=seed
+        )
 
         model = NeuralNetwork(input_dim=image_size, output_dim=num_classes).to(device)
 
@@ -203,7 +239,7 @@ if __name__ == "__main__":
             name: param.clone().detach() for name, param in model.named_parameters()
         }
 
-        train(model, train_loader, optimizer, device)
+        train(model, train_loader, val_loader, optimizer, device)
 
         # Save final parameters
         final_params = {
@@ -222,63 +258,8 @@ if __name__ == "__main__":
             final_params,
             model_id=seed,
             flag=flag,
+            dataset=args.data,
         )
 
         sharpness = compute_sharpness(model, nn.CrossEntropyLoss(), test_loader, device)
         print(f"Sharpness: {sharpness:.2f}%")
-
-
-# if __name__ == "__main__":
-#     parser = argparse.ArgumentParser()
-#     parser.add_argument(
-#         "--use-fractional",
-#         action="store_true",
-#         help="Use FractionalSGD instead of standard SGD",
-#     )
-#     args = parser.parse_args()
-#     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-#     for seed in range(3):
-#         if args.use_fractional:
-#             print(f"Training fractional model #{seed}")
-#         else:
-#             print(f"Training vanilla model #{seed}")
-
-#         train_loader, test_loader = get_noisy_fashion_mnist_loaders(
-#             data_dir=DATA_DIR, seed=seed
-#         )
-#         model = NeuralNetwork().to(device)
-#         flag = False
-#         if args.use_fractional:
-#             optimizer = FractionalSGD(model.parameters(), lr=0.01)
-#             flag = True
-#         else:
-#             optimizer = optim.SGD(model.parameters(), lr=0.01)
-
-#         # Save initial parameters
-#         initial_params = {
-#             name: param.clone().detach() for name, param in model.named_parameters()
-#         }
-
-#         train(model, train_loader, optimizer, device)
-
-#         # Save final parameters
-#         final_params = {
-#             name: param.clone().detach() for name, param in model.named_parameters()
-#         }
-
-#         acc = test(model, test_loader, device)
-#         print(f"Model #{seed} test accuracy: {acc:.2f}%")
-
-#         # Plot flatness
-#         plot_flatness(
-#             model,
-#             test_loader,
-#             device,
-#             initial_params,
-#             final_params,
-#             model_id=seed,
-#             flag=flag,
-#         )
-
-#         sharpness = compute_sharpness(model, nn.CrossEntropyLoss(), test_loader, device)
-#         print(f"Sharpness: {sharpness:.2f}%")
