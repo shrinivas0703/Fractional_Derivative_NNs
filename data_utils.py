@@ -29,16 +29,15 @@ def get_fashion_mnist_loaders(data_dir="data/", batch_size=64, seed=42, val_spli
     return train_loader, val_loader, test_loader
 
 
-def get_cifar10_loaders_grayscale(
-    data_dir="data/", batch_size=64, seed=42, val_split=0.1
-):
+def get_cifar10_loaders(data_dir="data/", batch_size=64, seed=42, val_split=0.1):
     torch.manual_seed(seed)
 
     transform = transforms.Compose(
         [
-            transforms.Grayscale(num_output_channels=1),
             transforms.ToTensor(),
-            transforms.Normalize(mean=[0.5], std=[0.5]),
+            transforms.Normalize(
+                mean=[0.4914, 0.4822, 0.4465], std=[0.2023, 0.1994, 0.2010]
+            ),
         ]
     )
     os.makedirs(data_dir, exist_ok=True)
@@ -63,16 +62,15 @@ def get_cifar10_loaders_grayscale(
     return train_loader, val_loader, test_loader
 
 
-def get_cifar100_loaders_grayscale(
-    data_dir="data/", batch_size=64, seed=42, val_split=0.1
-):
+def get_cifar100_loaders(data_dir="data/", batch_size=64, seed=42, val_split=0.1):
     torch.manual_seed(seed)
 
     transform = transforms.Compose(
         [
-            transforms.Grayscale(num_output_channels=1),
             transforms.ToTensor(),
-            transforms.Normalize(mean=[0.5], std=[0.5]),
+            transforms.Normalize(
+                mean=[0.5071, 0.4867, 0.4408], std=[0.2675, 0.2565, 0.2761]
+            ),
         ]
     )
     os.makedirs(data_dir, exist_ok=True)

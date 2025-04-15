@@ -2,7 +2,7 @@
 
 import torch
 from torch import optim
-from NeuralNetwork import NeuralNetwork
+from ConvolutionNeuralNetwork import ResNet50
 import torch.nn.functional as F
 import os
 import matplotlib.pyplot as plt
@@ -80,7 +80,7 @@ def validation(model, device, validation_loader, quiet=False):
         for data, target in validation_loader:
             data, target = data.to(device), target.to(device)
             output = model(data)
-            validation_loss += F.nll_loss(output, target, reduction="sum").item()
+            validation_loss += F.cross_entropy(output, target, reduction="sum").item()
             pred = output.max(1, keepdim=True)[1]
             correct += pred.eq(target.view_as(pred)).sum().item()
 
@@ -101,7 +101,7 @@ def validation(model, device, validation_loader, quiet=False):
 def plot_flatness(
     model, test_loader, device, initial_params, final_params, model_id, flag, dataset
 ):
-    os.makedirs(PLOTS_DIR + dataset, exist_ok=True)
+    os.makedirs(os.path.join(PLOTS_DIR, dataset), exist_ok=True)
     v_err = []
     alpha_v = []
     model.to(device)
@@ -118,18 +118,14 @@ def plot_flatness(
     plt.plot(alpha_v, v_err)
     plt.xlabel("Interpolation coefficient (alpha)")
     plt.ylabel("Validation error (%)")
-    plt.title(f"Loss Flatness for Model #{model_id} on {dataset}")
+    plt.title(f"Loss Flatness for ResNet-50 Model #{model_id} on {dataset}")
     plt.grid(True)
-    if flag:
-        plt.savefig(
-            os.path.join(
-                PLOTS_DIR, dataset, f"flatness_plot_fractional_model_{model_id}.png"
-            )
-        )
-    else:
-        plt.savefig(
-            os.path.join(PLOTS_DIR, dataset, f"flatness_plot_model_{model_id}.png")
-        )
+    fname = (
+        f"flatness_plot_resnet50_model_{model_id}.png"
+        if not flag
+        else f"flatness_plot_fractional_resnet50_model_{model_id}.png"
+    )
+    plt.savefig(os.path.join(PLOTS_DIR, dataset, fname))
     plt.close()
 
 
@@ -166,11 +162,8 @@ def compute_sharpness(model, loss_fn, data_loader, device, rho=1e-2, num_batches
         # Restore original model parameters
         model.load_state_dict(original_state)
 
-    # Average losses
     avg_orig = total_original_loss / num_batches
     avg_pert = total_perturbed_loss / num_batches
-
-    # Compute sharpness (%)
     sharpness = ((avg_pert - avg_orig) / (1 + avg_orig)) * 100
     return sharpness
 
@@ -185,63 +178,56 @@ if __name__ == "__main__":
     parser.add_argument(
         "--data",
         type=str,
-        choices=["fashion-mnist", "cifar10-grayscale", "cifar100-grayscale"],
+        choices=["fashion-mnist", "cifar10", "cifar100"],
         default="fashion-mnist",
-        help="Dataset to use: fashion-mnist, cifar10-grayscale, or cifar100-grayscale",
+        help="Dataset to use: fashion-mnist, cifar10, or cifar100",
     )
     args = parser.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # Select dataset and configure dimensions
     if args.data == "fashion-mnist":
         from data_utils import get_fashion_mnist_loaders
 
         get_loader_fn = get_fashion_mnist_loaders
-        image_size = 28 * 28
+        in_channels = 1
         num_classes = 10
+    elif args.data == "cifar10":
+        from data_utils import get_cifar10_loaders
 
-    elif args.data == "cifar10-grayscale":
-        from data_utils import get_cifar10_loaders_grayscale
-
-        get_loader_fn = get_cifar10_loaders_grayscale
-        image_size = 32 * 32
+        get_loader_fn = get_cifar10_loaders
+        in_channels = 3
         num_classes = 10
+    elif args.data == "cifar100":
+        from data_utils import get_cifar100_loaders
 
-    elif args.data == "cifar100-grayscale":
-        from data_utils import get_cifar100_loaders_grayscale
-
-        get_loader_fn = get_cifar100_loaders_grayscale
-        image_size = 32 * 32
+        get_loader_fn = get_cifar100_loaders
+        in_channels = 3
         num_classes = 100
 
     for seed in range(3):
-        if args.use_fractional:
-            print(f"Training fractional model #{seed}")
-        else:
-            print(f"Training vanilla model #{seed}")
-
+        print(
+            f"Training {'fractional' if args.use_fractional else 'vanilla'} model #{seed}"
+        )
         train_loader, val_loader, test_loader = get_loader_fn(
             data_dir=DATA_DIR, seed=seed
         )
 
-        model = NeuralNetwork(input_dim=image_size, output_dim=num_classes).to(device)
+        model = ResNet50(num_classes=num_classes, in_channels=in_channels).to(device)
 
-        flag = args.use_fractional
         optimizer = (
-            FractionalSGD(model.parameters(), lr=0.01)
+            FractionalSGD(model.parameters(), lr=0.01, alpha=1.5)
             if args.use_fractional
             else optim.SGD(model.parameters(), lr=0.01)
         )
 
-        # Save initial parameters
         initial_params = {
             name: param.clone().detach() for name, param in model.named_parameters()
         }
 
-        train(model, train_loader, val_loader, optimizer, device)
+        max_epochs = 100
+        train(model, train_loader, val_loader, optimizer, device, max_epochs=max_epochs)
 
-        # Save final parameters
         final_params = {
             name: param.clone().detach() for name, param in model.named_parameters()
         }
@@ -249,7 +235,6 @@ if __name__ == "__main__":
         acc = test(model, test_loader, device)
         print(f"Model #{seed} test accuracy: {acc:.2f}%")
 
-        # Plot flatness
         plot_flatness(
             model,
             test_loader,
@@ -257,7 +242,7 @@ if __name__ == "__main__":
             initial_params,
             final_params,
             model_id=seed,
-            flag=flag,
+            flag=args.use_fractional,
             dataset=args.data,
         )
 
