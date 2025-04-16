@@ -2,7 +2,7 @@
 
 import torch
 from torch import optim
-from ConvolutionNeuralNetwork import ResNet50
+from NeuralNetwork import NeuralNetwork
 import torch.nn.functional as F
 import os
 import matplotlib.pyplot as plt
@@ -18,7 +18,7 @@ os.makedirs(PLOTS_DIR, exist_ok=True)
 
 
 def train(
-    model, train_loader, val_loader, optimizer, device, max_epochs=50, patience=5
+    model, train_loader, val_loader, optimizer, device, max_epochs=50, patience=3
 ):
     best_val_loss = float("inf")
     epochs_no_improve = 0
@@ -99,7 +99,15 @@ def validation(model, device, validation_loader, quiet=False):
 
 
 def plot_flatness(
-    model, test_loader, device, initial_params, final_params, model_id, flag, dataset
+    model,
+    test_loader,
+    device,
+    initial_params,
+    final_params,
+    model_id,
+    flag,
+    dataset,
+    optimizer,
 ):
     os.makedirs(os.path.join(PLOTS_DIR, dataset), exist_ok=True)
     v_err = []
@@ -118,13 +126,9 @@ def plot_flatness(
     plt.plot(alpha_v, v_err)
     plt.xlabel("Interpolation coefficient (alpha)")
     plt.ylabel("Validation error (%)")
-    plt.title(f"Loss Flatness for ResNet-50 Model #{model_id} on {dataset}")
+    plt.title(f"Loss Flatness for Model #{model_id} on {dataset}")
     plt.grid(True)
-    fname = (
-        f"flatness_plot_resnet50_model_{model_id}.png"
-        if not flag
-        else f"flatness_plot_fractional_resnet50_model_{model_id}.png"
-    )
+    fname = f"flatness_plot_model_{model_id}_using_{optimizer}.png"
     plt.savefig(os.path.join(PLOTS_DIR, dataset, fname))
     plt.close()
 
@@ -180,9 +184,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--data",
         type=str,
-        choices=["fashion-mnist", "cifar10", "cifar100"],
+        choices=["fashion-mnist", "cifar10", "cifar100", "kmnist"],
         default="fashion-mnist",
-        help="Dataset to use: fashion-mnist, cifar10, or cifar100",
+        help="Dataset to use: fashion-mnist, cifar10, kmnist, or cifar100",
     )
     args = parser.parse_args()
 
@@ -199,7 +203,7 @@ if __name__ == "__main__":
         from data_utils import get_cifar10_loaders
 
         get_loader_fn = get_cifar10_loaders
-        in_channels = 3
+        in_dim = 3 * 32 * 32
         num_classes = 10
     elif args.data == "cifar100":
         from data_utils import get_cifar100_loaders
@@ -207,6 +211,12 @@ if __name__ == "__main__":
         get_loader_fn = get_cifar100_loaders
         in_channels = 3
         num_classes = 100
+    elif args.data == "kmnist":
+        from data_utils import get_kmnist_loaders
+
+        get_loader_fn = get_kmnist_loaders
+        in_dim = 28 * 28
+        num_classes = 10
 
     for seed in range(3):
         print(f"Training model #{seed} with optimizer: {args.optimizer}")
@@ -215,7 +225,7 @@ if __name__ == "__main__":
             data_dir=DATA_DIR, seed=seed
         )
 
-        model = ResNet50(num_classes=num_classes, in_channels=in_channels).to(device)
+        model = NeuralNetwork(input_dim=in_dim, num_classes=num_classes).to(device)
 
         # Select optimizer
         if args.optimizer == "sgd":
@@ -225,7 +235,7 @@ if __name__ == "__main__":
             optimizer = optim.Adam(model.parameters(), lr=0.001)
             flag = False
         elif args.optimizer == "fractional-sgd":
-            optimizer = FractionalSGD(model.parameters(), lr=0.01, alpha=1.5)
+            optimizer = FractionalSGD(model.parameters(), lr=0.01)
             flag = True
         elif args.optimizer == "fractional-adam":
             optimizer = GLAdam(model.parameters(), lr=0.001, alpha=0.8)
@@ -257,6 +267,7 @@ if __name__ == "__main__":
             model_id=seed,
             flag=flag,
             dataset=args.data,
+            optimizer=args.optimizer,
         )
 
         sharpness = compute_sharpness(model, nn.CrossEntropyLoss(), test_loader, device)
