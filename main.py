@@ -173,9 +173,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--optimizer",
         type=str,
-        choices=["sgd", "adam", "fractional_sgd", "fractional_adam"],
+        choices=["sgd", "adam", "fractional-sgd", "fractional-adam"],
         default="sgd",
-        help="Choose optimizer: sgd | adam | fractional_sgd | fractional_adam",
+        help="Choose optimizer: sgd | adam | fractional-sgd | fractional-adam",
     )
     parser.add_argument(
         "--data",
@@ -188,6 +188,7 @@ if __name__ == "__main__":
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+    # Dataset configuration
     if args.data == "fashion-mnist":
         from data_utils import get_fashion_mnist_loaders
 
@@ -208,26 +209,36 @@ if __name__ == "__main__":
         num_classes = 100
 
     for seed in range(3):
-        print(
-            f"Training {'fractional' if args.use_fractional else 'vanilla'} model #{seed}"
-        )
+        print(f"Training model #{seed} with optimizer: {args.optimizer}")
+
         train_loader, val_loader, test_loader = get_loader_fn(
             data_dir=DATA_DIR, seed=seed
         )
 
         model = ResNet50(num_classes=num_classes, in_channels=in_channels).to(device)
 
-        optimizer = (
-            FractionalSGD(model.parameters(), lr=0.01, alpha=1.5)
-            if args.use_fractional
-            else optim.SGD(model.parameters(), lr=0.01)
-        )
+        # Select optimizer
+        if args.optimizer == "sgd":
+            optimizer = optim.SGD(model.parameters(), lr=0.01)
+            flag = False
+        elif args.optimizer == "adam":
+            optimizer = optim.Adam(model.parameters(), lr=0.001)
+            flag = False
+        elif args.optimizer == "fractional-sgd":
+            optimizer = FractionalSGD(model.parameters(), lr=0.01, alpha=1.5)
+            flag = True
+        elif args.optimizer == "fractional-adam":
+            optimizer = GLAdam(model.parameters(), lr=0.001, alpha=0.8)
+            flag = True
+        else:
+            raise ValueError(f"Unsupported optimizer type: {args.optimizer}")
 
+        # Save initial parameters
         initial_params = {
             name: param.clone().detach() for name, param in model.named_parameters()
         }
 
-        max_epochs = 100
+        max_epochs = 30
         train(model, train_loader, val_loader, optimizer, device, max_epochs=max_epochs)
 
         final_params = {
@@ -244,12 +255,96 @@ if __name__ == "__main__":
             initial_params,
             final_params,
             model_id=seed,
-            flag=args.use_fractional,
+            flag=flag,
             dataset=args.data,
         )
 
         sharpness = compute_sharpness(model, nn.CrossEntropyLoss(), test_loader, device)
         print(f"Sharpness: {sharpness:.2f}%")
+
+
+# if __name__ == "__main__":
+#     parser = argparse.ArgumentParser()
+#     parser.add_argument(
+#         "--optimizer",
+#         type=str,
+#         choices=["sgd", "adam", "fractional_sgd", "fractional_adam"],
+#         default="sgd",
+#         help="Choose optimizer: sgd | adam | fractional_sgd | fractional_adam",
+#     )
+#     parser.add_argument(
+#         "--data",
+#         type=str,
+#         choices=["fashion-mnist", "cifar10", "cifar100"],
+#         default="fashion-mnist",
+#         help="Dataset to use: fashion-mnist, cifar10, or cifar100",
+#     )
+#     args = parser.parse_args()
+
+#     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+#     if args.data == "fashion-mnist":
+#         from data_utils import get_fashion_mnist_loaders
+
+#         get_loader_fn = get_fashion_mnist_loaders
+#         in_channels = 1
+#         num_classes = 10
+#     elif args.data == "cifar10":
+#         from data_utils import get_cifar10_loaders
+
+#         get_loader_fn = get_cifar10_loaders
+#         in_channels = 3
+#         num_classes = 10
+#     elif args.data == "cifar100":
+#         from data_utils import get_cifar100_loaders
+
+#         get_loader_fn = get_cifar100_loaders
+#         in_channels = 3
+#         num_classes = 100
+
+#     for seed in range(3):
+#         print(
+#             f"Training {'fractional' if args.use_fractional else 'vanilla'} model #{seed}"
+#         )
+#         train_loader, val_loader, test_loader = get_loader_fn(
+#             data_dir=DATA_DIR, seed=seed
+#         )
+
+#         model = ResNet50(num_classes=num_classes, in_channels=in_channels).to(device)
+
+#         optimizer = (
+#             FractionalSGD(model.parameters(), lr=0.01, alpha=1.5)
+#             if args.use_fractional
+#             else optim.SGD(model.parameters(), lr=0.01)
+#         )
+
+#         initial_params = {
+#             name: param.clone().detach() for name, param in model.named_parameters()
+#         }
+
+#         max_epochs = 100
+#         train(model, train_loader, val_loader, optimizer, device, max_epochs=max_epochs)
+
+#         final_params = {
+#             name: param.clone().detach() for name, param in model.named_parameters()
+#         }
+
+#         acc = test(model, test_loader, device)
+#         print(f"Model #{seed} test accuracy: {acc:.2f}%")
+
+#         plot_flatness(
+#             model,
+#             test_loader,
+#             device,
+#             initial_params,
+#             final_params,
+#             model_id=seed,
+#             flag=args.use_fractional,
+#             dataset=args.data,
+#         )
+
+#         sharpness = compute_sharpness(model, nn.CrossEntropyLoss(), test_loader, device)
+#         print(f"Sharpness: {sharpness:.2f}%")
 
 
 # if __name__ == "__main__":
