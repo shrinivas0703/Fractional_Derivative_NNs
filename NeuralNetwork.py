@@ -26,3 +26,31 @@ class NeuralNetwork(nn.Module):
 
     def backward_step(self, loss):
         loss.backward()
+
+
+class HelenaMLP(nn.Module):
+    def __init__(self, input_dim=27, num_classes=100):
+        super(HelenaMLP, self).__init__()
+
+        self.model = nn.Sequential(
+            nn.Linear(input_dim, 512),
+            nn.ReLU(),
+            nn.Linear(512, 1024),
+            nn.ReLU(),
+            nn.Linear(1024, 1024),
+            nn.ReLU(),
+            nn.Linear(1024, 512),
+            nn.ReLU(),
+            nn.Linear(512, 256),
+            nn.ReLU(),
+            nn.Linear(256, num_classes),
+        )
+
+    def forward(self, x):
+        return self.model(x)
+
+    def compute_loss(self, predictions, targets):
+        return F.cross_entropy(predictions, targets)
+
+    def backward_step(self, loss):
+        loss.backward()

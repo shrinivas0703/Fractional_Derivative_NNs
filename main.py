@@ -2,7 +2,7 @@
 
 import torch
 from torch import optim
-from NeuralNetwork import NeuralNetwork
+from NeuralNetwork import NeuralNetwork, HelenaMLP
 import torch.nn.functional as F
 import os
 import matplotlib.pyplot as plt
@@ -184,9 +184,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--data",
         type=str,
-        choices=["fashion-mnist", "cifar10", "cifar100", "kmnist"],
+        choices=["fashion-mnist", "cifar10", "cifar100", "kmnist", "helena"],
         default="fashion-mnist",
-        help="Dataset to use: fashion-mnist, cifar10, kmnist, or cifar100",
+        help="Dataset to use: fashion-mnist, cifar10, kmnist, helena, or cifar100",
     )
     args = parser.parse_args()
 
@@ -217,15 +217,24 @@ if __name__ == "__main__":
         get_loader_fn = get_kmnist_loaders
         in_dim = 28 * 28
         num_classes = 10
+    elif args.data == "helena":
+        from data_utils import get_helena_loaders
+
+        get_loader_fn = get_helena_loaders
 
     for seed in range(3):
         print(f"Training model #{seed} with optimizer: {args.optimizer}")
 
-        train_loader, val_loader, test_loader = get_loader_fn(
-            data_dir=DATA_DIR, seed=seed
-        )
-
-        model = NeuralNetwork(input_dim=in_dim, num_classes=num_classes).to(device)
+        if args.data == "helena":
+            train_loader, val_loader, test_loader, in_dim, num_classes = get_loader_fn(
+                seed=seed
+            )
+            model = HelenaMLP(input_dim=in_dim, num_classes=num_classes).to(device)
+        else:
+            train_loader, val_loader, test_loader = get_loader_fn(
+                data_dir=DATA_DIR, seed=seed
+            )
+            model = NeuralNetwork(input_dim=in_dim, num_classes=num_classes).to(device)
 
         # Select optimizer
         if args.optimizer == "sgd":

@@ -2,6 +2,10 @@ import torch
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader, random_split, TensorDataset
 from sklearn.datasets import make_blobs
+import openml
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+import pandas as pd
 import os
 
 
@@ -122,3 +126,34 @@ def get_kmnist_loaders(data_dir="data/", batch_size=64, seed=42, val_split=0.1):
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
     return train_loader, val_loader, test_loader
+
+
+def get_helena_loaders(batch_size=128, seed=42, val_split=0.1):
+    torch.manual_seed(seed)
+
+    dataset = openml.datasets.get_dataset("Helena", version=1)
+    X, y, _, _ = dataset.get_data(
+        target=dataset.default_target_attribute, dataset_format="dataframe"
+    )
+
+    # Encode labels as integers
+    y = pd.factorize(y)[0]
+
+    # Normalize features
+    scaler = StandardScaler()
+    X = scaler.fit_transform(X)
+
+    X_tensor = torch.tensor(X, dtype=torch.float32)
+    y_tensor = torch.tensor(y, dtype=torch.long)
+
+    full_dataset = TensorDataset(X_tensor, y_tensor)
+
+    val_size = int(len(full_dataset) * val_split)
+    train_size = len(full_dataset) - val_size
+    train_dataset, val_dataset = random_split(full_dataset, [train_size, val_size])
+
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+    test_loader = DataLoader(full_dataset, batch_size=batch_size, shuffle=False)
+
+    return train_loader, val_loader, test_loader, X.shape[1], len(set(y))
