@@ -2,7 +2,7 @@
 
 import torch
 from torch import optim
-from NeuralNetwork import NeuralNetwork, HelenaMLP
+from NeuralNetwork import NeuralNetwork, HelenaMLP, CIFAR10MLP
 import torch.nn.functional as F
 import os
 import matplotlib.pyplot as plt
@@ -230,6 +230,13 @@ if __name__ == "__main__":
                 seed=seed
             )
             model = HelenaMLP(input_dim=in_dim, num_classes=num_classes).to(device)
+
+        elif args.data == "cifar10":
+            train_loader, val_loader, test_loader = get_loader_fn(
+                data_dir=DATA_DIR, seed=seed
+            )
+            model = CIFAR10MLP(input_dim=in_dim, num_classes=num_classes).to(device)
+
         else:
             train_loader, val_loader, test_loader = get_loader_fn(
                 data_dir=DATA_DIR, seed=seed
