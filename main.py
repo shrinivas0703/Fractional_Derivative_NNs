@@ -220,7 +220,7 @@ if __name__ == "__main__":
         get_loader_fn = get_helena_loaders
 
     fig, ax = plt.subplots(figsize=(12, 8))
-    for seed in range(10):
+    for seed in range(30):
         print(f"Training model #{seed} with optimizer: {args.optimizer}")
 
         if args.data == "helena":
@@ -297,6 +297,8 @@ if __name__ == "__main__":
 
     if args.data == "cifar10":
         ax.set_ylim(40, 90)
+    elif args.data == "helena":
+        ax.set_ylim(50, 90)
 
     fname = f"flatness_combined_using_{args.optimizer}.png"
     plt.savefig(os.path.join(PLOTS_DIR, args.data, fname))
