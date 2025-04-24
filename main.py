@@ -126,7 +126,7 @@ def plot_flatness(
 
     if ax is None:
         fig, ax = plt.subplots()
-    ax.plot(alpha_v, v_err, label=f"Run {model_id}")
+    ax.plot(alpha_v, v_err)
     ax.grid(True)
 
 
@@ -287,9 +287,6 @@ if __name__ == "__main__":
 
         sharpness = compute_sharpness(model, nn.CrossEntropyLoss(), test_loader, device)
         print(f"Sharpness: {sharpness:.2f}%")
-    ax.legend(
-        title="Run Number",
-    )
 
     ax.set_title(f"Flatness Comparison — {args.optimizer} on {args.data}")
     ax.set_xlabel("Interpolation coefficient (alpha)")
