@@ -8,13 +8,20 @@ class NeuralNetwork(nn.Module):
         super(NeuralNetwork, self).__init__()
 
         self.model = nn.Sequential(
-            nn.Linear(input_dim, 4096),
+            # nn.Linear(input_dim, 4096),
+            # nn.ReLU(),
+            # nn.Linear(4096, 2048),
+            # nn.ReLU(),
+            # nn.Linear(2048, 1024),
+            # nn.ReLU(),
+            # nn.Linear(1024, num_classes),
+            nn.Linear(input_dim, 8192),
+            nn.ReLU(),
+            nn.Linear(8192, 4096),
             nn.ReLU(),
             nn.Linear(4096, 2048),
             nn.ReLU(),
-            nn.Linear(2048, 1024),
-            nn.ReLU(),
-            nn.Linear(1024, num_classes),
+            nn.Linear(2048, num_classes),
         )
 
     def forward(self, x):
@@ -32,13 +39,20 @@ class HelenaMLP(nn.Module):
     def __init__(self, input_dim=27, num_classes=100):
         super(HelenaMLP, self).__init__()
         self.model = nn.Sequential(
-            nn.Linear(input_dim, 4096),
+            # nn.Linear(input_dim, 4096),
+            # nn.ReLU(),
+            # nn.Linear(4096, 2048),
+            # nn.ReLU(),
+            # nn.Linear(2048, 1024),
+            # nn.ReLU(),
+            # nn.Linear(1024, num_classes),
+            nn.Linear(input_dim, 8192),
+            nn.ReLU(),
+            nn.Linear(8192, 4096),
             nn.ReLU(),
             nn.Linear(4096, 2048),
             nn.ReLU(),
-            nn.Linear(2048, 1024),
-            nn.ReLU(),
-            nn.Linear(1024, num_classes),
+            nn.Linear(2048, num_classes),
         )
 
     def forward(self, x):
@@ -56,13 +70,20 @@ class CIFAR10MLP(nn.Module):
         super(CIFAR10MLP, self).__init__()
 
         self.model = nn.Sequential(
-            nn.Linear(input_dim, 4096),
+            # nn.Linear(input_dim, 4096),
+            # nn.ReLU(),
+            # nn.Linear(4096, 2048),
+            # nn.ReLU(),
+            # nn.Linear(2048, 1024),
+            # nn.ReLU(),
+            # nn.Linear(1024, num_classes),
+            nn.Linear(input_dim, 8192),
+            nn.ReLU(),
+            nn.Linear(8192, 4096),
             nn.ReLU(),
             nn.Linear(4096, 2048),
             nn.ReLU(),
-            nn.Linear(2048, 1024),
-            nn.ReLU(),
-            nn.Linear(1024, num_classes),
+            nn.Linear(2048, num_classes),
         )
 
     def forward(self, x):

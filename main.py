@@ -297,6 +297,6 @@ if __name__ == "__main__":
     elif args.data == "helena":
         ax.set_ylim(50, 90)
 
-    fname = f"flatness_combined_using_{args.optimizer}.png"
+    fname = f"flatness_combined_using_{args.optimizer}_updated.png"
     plt.savefig(os.path.join(PLOTS_DIR, args.data, fname))
     plt.close()
